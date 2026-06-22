@@ -1,0 +1,133 @@
+{
+  "entities": {
+    "Reservation": {
+      "title": "Reservation",
+      "description": "A tourist booking reservation for packages in Desa Wisata Talawaan",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the reservation ticket, e.g. TLW-XXXXXX"
+        },
+        "packageName": {
+          "type": "string",
+          "description": "The name of the tourist package booked"
+        },
+        "packageCategory": {
+          "type": "string",
+          "description": "Category of the tourist package"
+        },
+        "guestName": {
+          "type": "string",
+          "description": "Full name of the primary holiday guest"
+        },
+        "guestPhone": {
+          "type": "string",
+          "description": "Contact text or whatsapp of the booking guest"
+        },
+        "date": {
+          "type": "string",
+          "description": "Travel/visit target calendar date, formatted YYYY-MM-DD"
+        },
+        "guests": {
+          "type": "integer",
+          "description": "Number of participants or accommodation slots requested"
+        },
+        "addons": {
+          "type": "object",
+          "description": "Optional selected premium service upgrades",
+          "properties": {
+            "airport": { "type": "boolean" },
+            "documentation": { "type": "boolean" },
+            "extraKlap": { "type": "boolean" }
+          },
+          "required": ["airport", "documentation", "extraKlap"]
+        },
+        "duration": {
+          "type": "string",
+          "description": "Estimated timeframe of the physical tour"
+        },
+        "grandTotal": {
+          "type": "number",
+          "description": "Final price sum inclusive of addons in IDR"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "verified", "rejected"],
+          "description": "Administrative audit state of the ticket"
+        },
+        "timestamp": {
+          "type": "number",
+          "description": "System generation millisecond timestamp"
+        }
+      },
+      "required": ["id", "packageName", "guestName", "guestPhone", "date", "guests", "addons", "grandTotal", "status", "timestamp"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Authorized administrative accounts for verification portal auditing rights",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Google Authentication unique ID of the authorized admin"
+        },
+        "email": {
+          "type": "string",
+          "description": "Registered credentials mail address of the administrator"
+        }
+      },
+      "required": ["uid", "email"]
+    },
+    "TripDocumentation": {
+      "title": "TripDocumentation",
+      "description": "Publicly accessible cloud storage folder links of trip documentations for guests",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique record identifier"
+        },
+        "packageName": {
+          "type": "string",
+          "description": "Name of the tourist package"
+        },
+        "tripDate": {
+          "type": "string",
+          "description": "Date of the trip"
+        },
+        "guestName": {
+          "type": "string",
+          "description": "Group, client or family name"
+        },
+        "url": {
+          "type": "string",
+          "description": "Google Drive or public link url"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional notes or highlights"
+        },
+        "timestamp": {
+          "type": "number",
+          "description": "Epoch timestamp"
+        }
+      },
+      "required": ["id", "packageName", "tripDate", "guestName", "url", "timestamp"]
+    }
+  },
+  "firestore": {
+    "reservations/{reservationId}": {
+      "schema": "Reservation",
+      "description": "Customer rekreasi booking entries"
+    },
+    "admins/{adminId}": {
+      "schema": "Admin",
+      "description": "White-listed administrative staff accounts"
+    },
+    "documentations/{documentationId}": {
+      "schema": "TripDocumentation",
+      "description": "Public documentation cloud folder links"
+    }
+  }
+}

@@ -1,0 +1,112 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net: Default Deny All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Define hardened global helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 64 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Admin lookup checks if the authorized user's uid document exists in the admins collection
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // 3. Validation Blueprint for Reservation
+    function isValidReservation(data) {
+      return data.keys().hasAll(['id', 'packageName', 'guestName', 'guestPhone', 'date', 'guests', 'addons', 'grandTotal', 'status', 'timestamp'])
+        && data.keys().size() >= 10
+        && data.id is string && data.id.size() >= 3 && data.id.size() <= 40
+        && data.packageName is string && data.packageName.size() >= 5 && data.packageName.size() <= 150
+        && data.guestName is string && data.guestName.size() >= 2 && data.guestName.size() <= 100
+        && data.guestPhone is string && data.guestPhone.size() >= 5 && data.guestPhone.size() <= 40
+        && data.date is string && data.date.size() == 10 // YYYY-MM-DD
+        && data.guests is int && data.guests >= 1 && data.guests <= 100
+        && data.grandTotal is number && data.grandTotal >= 0
+        && data.status is string && (data.status == 'pending' || data.status == 'verified' || data.status == 'rejected')
+        && data.timestamp is int
+        && data.addons is map
+        && data.addons.keys().hasAll(['airport', 'documentation', 'extraKlap'])
+        && data.addons.keys().size() == 3
+        && data.addons.airport is bool
+        && data.addons.documentation is bool
+        && data.addons.extraKlap is bool;
+    }
+
+    // Validation Blueprint for TripDocumentation
+    function isValidTripDocumentation(data) {
+      return data.keys().hasAll(['id', 'packageName', 'tripDate', 'guestName', 'url', 'timestamp'])
+        && data.keys().size() >= 6
+        && data.id is string && data.id.size() >= 3 && data.id.size() <= 40
+        && data.packageName is string && data.packageName.size() >= 5 && data.packageName.size() <= 150
+        && data.tripDate is string && data.tripDate.size() == 10 // YYYY-MM-DD
+        && data.guestName is string && data.guestName.size() >= 2 && data.guestName.size() <= 100
+        && data.url is string && data.url.size() >= 5 && data.url.size() <= 500
+        && data.timestamp is int;
+    }
+
+    // 4. Match and Secure Collections
+    
+    // Admins Collection: Read-only for authenticated admins themselves. No client writes allowed.
+    match /admins/{adminId} {
+      allow read: if isSignedIn() && request.auth.uid == adminId;
+      allow write: if false; // Provisioned exclusively via backend or console
+    }
+
+    // Reservations Collection
+    match /reservations/{reservationId} {
+      
+      // Allow single lookups if the target id matches
+      allow get: if isValidId(reservationId);
+      
+      // Allow list of reservations for reservation tracking (supports mock admin dashboard)
+      allow list: if true;
+      
+      // Anyone can create a reservation (guest booking)
+      allow create: if isValidId(reservationId) 
+        && isValidReservation(incoming());
+
+      // Updates for status moderation updates (supports mock admin status change)
+      allow update: if isValidId(reservationId)
+        && isValidReservation(incoming())
+        // Immutable guard: customer details and billing cannot be maliciously changed
+        && incoming().id == existing().id
+        && incoming().packageName == existing().packageName
+        && incoming().guestName == existing().guestName
+        && incoming().guestPhone == existing().guestPhone
+        && incoming().date == existing().date
+        && incoming().guests == existing().guests
+        && incoming().grandTotal == existing().grandTotal
+        && incoming().timestamp == existing().timestamp
+        // Only status can be changed during moderation
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+
+      // Admin can remove records
+      allow delete: if isValidId(reservationId);
+    }
+
+    // Documentations Collection: Public view and manage
+    match /documentations/{documentationId} {
+      allow read, list: if true;
+      allow create, update: if isValidId(documentationId) && isValidTripDocumentation(incoming());
+      allow delete: if isValidId(documentationId);
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Talawaan Info",
+  "description": "Portal Informasi Resmi dan Panduan Wisata Desa Talawaan, Minahasa Utara, Sulawesi Utara.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
